@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        canvas { border: 1px solid #ccc; margin-top: 20px; background: #f9f9f9; }
+        .log { margin-top: 10px; max-height: 200px; overflow-y: auto; background: #eee; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Toy ECC: y² = x³ + 7 (mod 17)</h2>
+    <label>Private Key (k): <input type="number" id="kVal" value="6" min="1"></label>
+    <button onclick="compute()">Compute Public Key</button>
+    <div class="log" id="output"></div>
+    <canvas id="grid" width="340" height="340"></canvas>
+
+<script>
+const p = 17n;
+const G = { x: 1n, y: 5n };
+
+function modInverse(a, m) {
+    a = (a % m + m) % m;
+    for (let x = 1n; x < m; x++) if ((a * x) % m === 1n) return x;
+    return 1n;
+}
+
+function pointAdd(P, Q) {
+    if (!P) return Q; if (!Q) return P;
+    let s;
+    if (P.x === Q.x && P.y === Q.y) {
+        if (P.y === 0n) return null;
+        s = (3n * P.x * P.x) * modInverse(2n * P.y, p) % p;
+    } else {
+        if (P.x === Q.x) return null;
+        s = (Q.y - P.y) * modInverse(Q.x - P.x, p) % p;
+    }
+    s = (s + p) % p;
+    let x3 = (s * s - P.x - Q.x) % p;
+    x3 = (x3 + p) % p;
+    let y3 = (s * (P.x - x3) - P.y) % p;
+    y3 = (y3 + p) % p;
+    return { x: x3, y: y3 };
+}
+
+function compute() {
+    let k = BigInt(document.getElementById('kVal').value);
+    let out = document.getElementById('output');
+    let ctx = document.getElementById('grid').getContext('2d');
+    out.innerHTML = "";
+    ctx.clearRect(0, 0, 340, 340);
+    
+    // Draw Grid
+    ctx.fillStyle = '#ddd';
+    for(let i=0; i<17; i++) {
+        for(let j=0; j<17; j++) ctx.fillRect(i*20, 320 - j*20, 19, 19);
+    }
+
+    let current = null;
+    let pts = [];
+    for (let i = 1n; i <= k; i++) {
+        current = pointAdd(current, G);
+        if (current) {
+            out.innerHTML += `${i}G = (${current.x}, ${current.y})<br>`;
+            pts.push(current);
+        } else {
+            out.innerHTML += `${i}G = Infinity<br>`;
+        }
+    }
+    out.innerHTML += `<strong>TOY PUBLIC KEY: (${current.x}, ${current.y})</strong>`;
+    
+    // Draw Points
+    pts.forEach((pt, idx) => {
+        ctx.fillStyle = idx === pts.length - 1 ? 'red' : 'blue';
+        ctx.beginPath();
+        ctx.arc(Number(pt.x)*20 + 10, 320 - Number(pt.y)*20 + 10, 6, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillText(idx+1, Number(pt.x)*20 + 5, 320 - Number(pt.y)*20 + 14);
+    });
+}
+compute();
+</script>
+</body>
+</html>
